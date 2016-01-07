@@ -4,10 +4,33 @@ import (
 	"math/rand"
 	"time"
 	"fmt"
-	codec "github.com/ugorji/go/codec"
-	"net"
-	"strings"
 )
+
+type Message struct {
+	Source      []int32
+	Destination []int32
+	Atype       string
+	Number      int32
+	Payload     interface{}
+}
+
+func (this *Message) FromMap(mm map[string] interface{}) {
+	this.Number = int32(mm["number"].(uint64))
+	this.Atype = mm["atype"].(string)
+	this.Destination = ai2aint(mm["destination"].([]interface{}))
+	this.Payload = mm["payload"]
+	this.Source = ai2aint(mm["source"].([]interface{}))
+}
+
+func (this *Message) ToMap() map[string] interface{}{
+	tmp := make(map[string] interface{})
+	tmp["source"] = this.Source
+	tmp["destination"] = this.Destination
+	tmp["atype"] = this.Atype
+	tmp["number"] = this.Number
+	tmp["payload"] = this.Payload
+	return tmp
+}
 
 func IdGenerator() int32{
 	rand.Seed(int64(time.Now().Unix()))
@@ -16,40 +39,23 @@ func IdGenerator() int32{
 
 type Module struct {
 	mid int32
+	modulename string
 	produces []string
 	consumes map[string] func(*Message)
-	connected bool
-	conn net.Conn
-	enc *codec.Encoder
-	dec *codec.Decoder
+	networkAdapter NetworkAdapter
 }
 
-func (this *Module) ReceiveWorker(){
-	for {
-		msgmap := make(map[string] interface{})
-		this.dec.Decode(&msgmap)
-		msg := Message{}
-		msg.FromMap(msgmap)
-		if handler, ok := this.consumes[msg.atype]; ok == true {
-			handler(&msg)
-		}
-	}
-}
-
-func (this *Module) Init(args map[string] interface{}){
+func (this *Module) Init(modulename string, networkAdapter NetworkAdapter, args map[string] interface{}){
 	if val, ok := args["mid"] ; ok == true{
 		this.mid = int32(val.(int))
 	} else {
 		this.mid = IdGenerator()
 	}
+	this.networkAdapter = networkAdapter
+	this.networkAdapter.Init(this, Dst_Router_Factory(0))
+	this.modulename = modulename
 	this.consumes = make(map[string] func(*Message))
-	this.ConnectToManager("tcp://127.0.0.1:8888")
-	handle := &codec.MsgpackHandle{}
-	handle.RawToString = true
-	this.enc = codec.NewEncoder(this.conn, handle)
-	this.dec = codec.NewDecoder(this.conn, handle)
-	go this.ReceiveWorker()
-	fmt.Println("Initializing %s %s")
+	fmt.Println("Initializing", modulename, this.mid)
 }
 
 func (this *Module) AddTopic(topic string, callback func (*Message)){
@@ -58,62 +64,14 @@ func (this *Module) AddTopic(topic string, callback func (*Message)){
 	for i := range this.consumes{
 		keys = append(keys, i)
 	}
-	ta := Message{atype: "TOPIC_ADVERTISEMENT", payload: map[string] interface{}{"consumes": keys}}
+	ta := Message{Atype: "TOPIC_ADVERTISEMENT", Payload: map[string] interface{}{"consumes": keys}}
 	this.MessageOut(ta)
 }
 
 func (this *Module) MessageOut(msg Message){
-	msg.source = append(msg.source, this.mid)
-	msg.number = IdGenerator()
-	this.enc.Encode(msg.ToMap())
-}
-
-func (this *Module) ConnectToManager(managerIf string){
-	parts := strings.Split(managerIf, "://")
-	var network string
-	switch parts[0] {
-	case "unixsock":
-		network = "unix"
-	case "tcp":
-		network = "tcp"
-	default:
-		network = "tcp"
-	}
-	var err error
-	fmt.Println("Connecting to ", parts[1])
-	this.conn, err = net.Dial(network, parts[1]);
-	for err != nil {
-		fmt.Errorf("Could not connect, %v", err)
-		this.conn, err = net.Dial(network, parts[1]);
-	}
-	fmt.Println("Successfully connected to ", managerIf)
-	this.connected = true
-}
-
-type Message struct {
-	source []int32
-	destination []int32
-	atype string
-	number int32
-	payload interface{}
-}
-
-func (this *Message) FromMap(mm map[string] interface{}) {
-	this.number = int32(mm["number"].(uint64))
-	this.atype = mm["atype"].(string)
-	this.destination = ai2aint(mm["destination"].([]interface{}))
-	this.payload = mm["payload"]
-	this.source = ai2aint(mm["source"].([]interface{}))
-}
-
-func (this *Message) ToMap() map[string] interface{}{
-	tmp := make(map[string] interface{})
-	tmp["source"] = this.source
-	tmp["destination"] = this.destination
-	tmp["atype"] = this.atype
-	tmp["number"] = this.number
-	tmp["payload"] = this.payload
-	return tmp
+	msg.Source = append(msg.Source, this.mid)
+	msg.Number = IdGenerator()
+	this.networkAdapter.MessageOut(&msg)
 }
 
 func ai2aint(input []interface{}) []int32{
@@ -122,8 +80,4 @@ func ai2aint(input []interface{}) []int32{
 		output = append(output, int32(i.(uint64)))
 	}
 	return output
-}
-
-func ResponseHandle(msg *Message) {
-	fmt.Println(msg)
 }
