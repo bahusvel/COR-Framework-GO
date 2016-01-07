@@ -38,28 +38,28 @@ func IdGenerator() int32{
 }
 
 type Module struct {
-	mid int32
-	modulename string
-	produces []string
-	consumes map[string] func(*Message)
+	Mid            int32
+	modulename     string
+	produces       []string
+	consumes       map[string] func(*Message)
 	networkAdapter NetworkAdapter
 }
 
-func (this *Module) Init(modulename string, networkAdapter NetworkAdapter, args map[string] interface{}){
-	if val, ok := args["mid"] ; ok == true{
-		this.mid = int32(val.(int))
-	} else {
-		this.mid = IdGenerator()
-	}
+func (this *Module) Init(modulename string, networkAdapter NetworkAdapter){
+	this.Mid = IdGenerator()
 	this.networkAdapter = networkAdapter
-	this.networkAdapter.Init(this, Dst_Router_Factory(0))
+	this.networkAdapter.Init(this)
 	this.modulename = modulename
 	this.consumes = make(map[string] func(*Message))
-	fmt.Println("Initializing", modulename, this.mid)
+	fmt.Println("Initializing", modulename, this.Mid)
 }
 
 func (this *Module) AddTopic(topic string, callback func (*Message)){
 	this.consumes[topic] = callback
+	this.topicAdvertisement()
+}
+
+func (this *Module) topicAdvertisement(){
 	keys := make([]string, 0, len(this.consumes))
 	for i := range this.consumes{
 		keys = append(keys, i)
@@ -69,7 +69,7 @@ func (this *Module) AddTopic(topic string, callback func (*Message)){
 }
 
 func (this *Module) MessageOut(msg Message){
-	msg.Source = append(msg.Source, this.mid)
+	msg.Source = append(msg.Source, this.Mid)
 	msg.Number = IdGenerator()
 	this.networkAdapter.MessageOut(&msg)
 }
