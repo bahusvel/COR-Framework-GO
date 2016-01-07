@@ -1,4 +1,4 @@
-package main
+package cor
 
 import (
 	"math/rand"
@@ -126,12 +126,4 @@ func ai2aint(input []interface{}) []int32{
 
 func ResponseHandle(msg *Message) {
 	fmt.Println(msg)
-}
-
-func main() {
-	zm := Module{}
-	zm.Init(map[string]interface{} {})
-	zm.AddTopic("RESPONSE", ResponseHandle)
-	zm.MessageOut(Message{atype: "HelloWorld"})
-	time.Sleep(10 * time.Second)
 }
