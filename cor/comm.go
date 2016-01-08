@@ -71,9 +71,7 @@ func (this *SocketAdapter) connectionHandler(conn net.Conn){
 			delete(this.connectionMap, conn)
 			this.encoderMap[msg.Source[0]] = enc
 		}
-		if handler, ok := this.module.consumes[msg.Atype]; ok {
-			handler(&msg)
-		}
+		this.module.messageIn(&msg)
 	}
 }
 

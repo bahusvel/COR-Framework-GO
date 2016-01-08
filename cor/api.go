@@ -68,6 +68,12 @@ func (this *Module) topicAdvertisement(){
 	this.MessageOut(ta)
 }
 
+func (this *Module) messageIn(msg *Message){
+	if handler, ok := this.consumes[msg.Atype]; ok {
+			handler(msg)
+	}
+}
+
 func (this *Module) MessageOut(msg Message){
 	msg.Source = append(msg.Source, this.Mid)
 	msg.Destination = []int32 {}
