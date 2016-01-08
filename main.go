@@ -32,6 +32,9 @@ func main() {
 	req.AddTopic("RESPONSE", ResponseHandle)
 
 	req_adapter.Connect("tcp://localhost:6050")
-	req.MessageOut(cor.Message{Atype: "REQUEST"})
+	time.Sleep(1 * time.Second)
+	for i := 0 ; i < 100 ; i++ {
+		req.MessageOut(cor.Message{Atype: "REQUEST"})
+	}
 	time.Sleep(10 * time.Second)
 }

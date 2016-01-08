@@ -50,6 +50,7 @@ func (this *SocketAdapter) MessageOut(msg *Message) {
 	} else {
 		fmt.Printf("Destination %d is unknown, will broadcast\n", dst)
 		msg_map := msg.ToMap()
+		fmt.Println(this.connectionMap)
 		for _, enc := range this.connectionMap {
 			enc.Encode(msg_map)
 		}

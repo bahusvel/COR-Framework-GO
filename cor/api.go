@@ -70,6 +70,7 @@ func (this *Module) topicAdvertisement(){
 
 func (this *Module) MessageOut(msg Message){
 	msg.Source = append(msg.Source, this.Mid)
+	msg.Destination = []int32 {}
 	msg.Number = IdGenerator()
 	this.networkAdapter.MessageOut(&msg)
 }
