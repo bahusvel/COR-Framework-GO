@@ -6,31 +6,6 @@ import (
 	"fmt"
 )
 
-type Message struct {
-	Source      []int32
-	Destination []int32
-	Atype       string
-	Number      int32
-	Payload     interface{}
-}
-
-func (this *Message) FromMap(mm map[string] interface{}) {
-	this.Number = int32(mm["number"].(uint64))
-	this.Atype = mm["atype"].(string)
-	this.Destination = ai2aint(mm["destination"].([]interface{}))
-	this.Payload = mm["payload"]
-	this.Source = ai2aint(mm["source"].([]interface{}))
-}
-
-func (this *Message) ToMap() map[string] interface{}{
-	tmp := make(map[string] interface{})
-	tmp["source"] = this.Source
-	tmp["destination"] = this.Destination
-	tmp["atype"] = this.Atype
-	tmp["number"] = this.Number
-	tmp["payload"] = this.Payload
-	return tmp
-}
 
 func IdGenerator() int32{
 	rand.Seed(int64(time.Now().Unix()))
@@ -59,13 +34,8 @@ func (this *Module) AddTopic(topic string, callback func (*Message)){
 	this.topicAdvertisement()
 }
 
-func (this *Module) topicAdvertisement(){
-	keys := make([]string, 0, len(this.consumes))
-	for i := range this.consumes{
-		keys = append(keys, i)
-	}
-	ta := Message{Atype: "TOPIC_ADVERTISEMENT", Payload: map[string] interface{}{"consumes": keys}}
-	this.MessageOut(ta)
+func (this *Module) AddTyoe(topic string, interface{}){
+
 }
 
 func (this *Module) messageIn(msg *Message){
