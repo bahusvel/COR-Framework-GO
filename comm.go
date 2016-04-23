@@ -2,69 +2,62 @@ package cor
 
 import (
 	"fmt"
-	codec "github.com/ugorji/go/codec"
 	"net"
 	"strings"
+	"encoding/binary"
+	"github.com/bahusvel/COR-Framework-GO/protocol"
+	"github.com/golang/protobuf/proto"
 )
 
-type RouteCallback func(*Message) int32
-
-func DstRouterFactory(default_route int32) RouteCallback {
-	return func(msg *Message) int32{
-		if len(msg.Destination) == 0 {
-			return default_route
-		} else {
-			return msg.Destination[len(msg.Destination)-1]
-		}
-	}
-}
-
-func StaticRouterFactory(routes *map[string] int32) RouteCallback{
-	return func(msg *Message) int32{
-		if route, ok := (*routes)[msg.Atype]; ok {
-			return route
-		} else {
-			return 0
-		}
-	}
-}
 
 type NetworkAdapter interface {
 	Init(module *Module)
-	MessageOut(msg *Message)
+	MessageOut(msg *interface{})
 }
 
 type SocketAdapter struct {
 	module     	  *Module
-	RouteCallback RouteCallback
 	protocol	  string
-	handle		  *codec.MsgpackHandle
-	encoderMap 	  map[int32] *codec.Encoder
-	connectionMap map[net.Conn] *codec.Encoder
+	routes		map[string] string
+	sockets		map[string]	net.Conn
 }
 
-func (this *SocketAdapter) MessageOut(msg *Message) {
-	dst := this.RouteCallback(msg)
-	if enc, ok := this.encoderMap[dst]; ok{
-			enc.Encode(msg.ToMap())
-	} else {
-		fmt.Printf("Destination %d is unknown, will broadcast\n", dst)
-		msg_map := msg.ToMap()
-		fmt.Println(this.connectionMap)
-		for _, enc := range this.connectionMap {
-			enc.Encode(msg_map)
-		}
+func (this *SocketAdapter) MessageOut(msg *interface{}) error{
+	msgType := getType(msg)
+	route, ok := this.routes[msgType]
+	if !ok {
+		fmt.Println("Don't know where to send ", getType(msgType))
+		return error("Don't know where to send " + getType(msgType))
 	}
-
+	if sock, ok := this.sockets[route]; ok{
+		cormsg := cor.CORMessage{}
+		cormsg.Type = msgType
+		data, err := proto.Marshal(msg)
+		if err != nil {
+			return err
+		}
+		cormsg.Data = data
+		cordata, err := proto.Marshal(cormsg)
+		if err != nil {
+			return err
+		}
+		length := make([]byte, 4)
+		binary.BigEndian.PutUint32(length, len(cordata))
+		sock.Write(length)
+		sock.Write(cordata)
+	}
+	return nil
 }
 
 func (this *SocketAdapter) connectionHandler(conn net.Conn){
-	dec := codec.NewDecoder(conn, this.handle)
-	enc := codec.NewEncoder(conn, this.handle)
-	this.connectionMap[conn] = enc
+	length := make([]byte, 4)
 	for {
-		msgmap := make(map[string]interface{})
-		dec.Decode(&msgmap)
+		bread, err := conn.Read(length)
+		if bread != 4 || err != nil {
+
+		}
+		cormsg := cor.CORMessage{}
+		proto.Unmarshal()
 		msg := Message{}
 		msg.FromMap(msgmap)
 		if _, ok := this.encoderMap[msg.Source[0]]; !ok {
